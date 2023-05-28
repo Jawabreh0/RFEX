@@ -18,9 +18,11 @@ byte colPins[COLS] = {A0, A1, A2, A3};  // Connect to the column pinouts of the 
 Keypad customKeypad = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
 
 char customKey;
+String userID = "";
 String password = "";
 String confirmPassword = "";
 bool isFirstPassword = true;
+bool isEnteringUserID = true;
 
 void setup() {
   Serial.begin(9600);
@@ -30,7 +32,12 @@ void setup() {
 void loop() {
   customKey = customKeypad.getKey();
 
-  if (isFirstPassword) {
+  if (isEnteringUserID) {
+    lcd.setCursor(0, 0);
+    lcd.print("Enter User ID:");
+    lcd.setCursor(0, 1);
+    lcd.print(userID);
+  } else if (isFirstPassword) {
     lcd.setCursor(0, 0);
     lcd.print("Enter Password:");
     lcd.setCursor(0, 1);
@@ -44,27 +51,34 @@ void loop() {
 
   if (customKey){
     if (customKey == '*') {
-      if (isFirstPassword) {
+      if (isEnteringUserID) {
+        userID = "";
+      } else if (isFirstPassword) {
         password = "";
       } else {
         confirmPassword = "";
       }
     } else if (customKey == '#') {
-      if (isFirstPassword) {
+      if (isEnteringUserID) {
+        isEnteringUserID = false;
+        lcd.clear();
+      } else if (isFirstPassword) {
         isFirstPassword = false;
         lcd.clear();
       } else {
         lcd.clear();
         lcd.setCursor(0, 0);
         if (password == confirmPassword) {
-          lcd.print("Your Password is:");
+          lcd.print("User ID: " + userID);
           lcd.setCursor(0, 1);
-          lcd.print(password);
+          lcd.print("Password: " + password);
           delay(2000);
           lcd.clear();
+          userID = "";
           password = "";
           confirmPassword = "";
           isFirstPassword = true;
+          isEnteringUserID = true;
         } else {
           lcd.print("Passwords do not match");
           delay(2000);
@@ -75,7 +89,9 @@ void loop() {
         }
       }
     } else {
-      if (isFirstPassword) {
+      if (isEnteringUserID) {
+        userID += customKey;
+      } else if (isFirstPassword) {
         password += customKey;
       } else {
         confirmPassword += customKey;
