@@ -38,6 +38,11 @@ byte rowPins[ROWS] = {22, 23, 24, 25};  // Connect to the row pinouts of the key
 byte colPins[COLS] = {A0, A1, A2, A3};  // Connect to the column pinouts of the keypad
 Keypad customKeypad = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
 
+const int redPin = 8;    // Pin for the red channel
+const int greenPin = 9; // Pin for the green channel
+const int bluePin = 12;  // Pin for the blue channel
+
+String response = "";
 String userID = "";
 String password = "";
 String confirmPassword = "";
@@ -62,6 +67,11 @@ void setup() {
   lcd.print("Enter User ID:");
 
   finger.begin(57600);
+
+  pinMode(redPin, OUTPUT);
+  pinMode(greenPin, OUTPUT);
+  pinMode(bluePin, OUTPUT);
+
 
   if (finger.verifyPassword()) {
   } else {
@@ -101,6 +111,7 @@ void resetVariables() {
   isEnteringUserID = true;
   isEnrollmentComplete = false;
   isFingerDone = false;
+  response = "";
 }
 
 void displayInitialPrompt() {
@@ -160,6 +171,7 @@ void loop() {
           Serial.println(userID);
           lcd.setCursor(0, 1);
           lcd.print("Password: " + password);
+          r = password;
            Serial.println(password);
           delay(2000);
 
@@ -189,9 +201,7 @@ void loop() {
   }
   if(isFingerDone){
     lcd.setCursor(0,0);
-    lcd.println("Saving data...");
-    lcd.setCursor(0,1);
-    lcd.println("Please wait");
+    lcd.println("Please wait ");
   do{
     /*Ethernet.begin(mymac);
     delay(1000);
@@ -218,15 +228,51 @@ void loop() {
   
   }while(isFingerDone);
    isFingerTaken = false;
+   Serial.println(response);
   }
-
+  if (response.indexOf("HTTP/1.1 200 OK") != -1) {
   if(!isFingerTaken){
-     
+    
+    
    do{
      getFingerprintEnroll();
-   }while (!isFingerTaken );  
-    isEnrollmentComplete = true;
+   }while (!isFingerTaken ); 
+    lcd.clear();
+      lcd.println("User enrolled ");
+       digitalWrite(redPin, LOW);
+       digitalWrite(greenPin, HIGH);
+       digitalWrite(bluePin, LOW);
+      delay(3000);
+       digitalWrite(redPin, LOW);
+       digitalWrite(greenPin, LOW);
+       digitalWrite(bluePin, LOW);
+      isEnrollmentComplete = true;
   }
+  } else if (response.indexOf("HTTP/1.1 404 Not Found") != -1){
+      lcd.clear();
+      lcd.println("Unexpected error ");
+      digitalWrite(redPin, HIGH);
+       digitalWrite(greenPin, LOW);
+       digitalWrite(bluePin, LOW);
+      delay(3000);
+       digitalWrite(redPin, LOW);
+       digitalWrite(greenPin, LOW);
+       digitalWrite(bluePin, LOW);
+      isEnrollmentComplete = true;
+    }else if (response.indexOf("HTTP/1.1 500 Internal Server Error") != -1){
+      lcd.clear();
+      lcd.println("Unexpected error ");
+      digitalWrite(redPin, HIGH);
+       digitalWrite(greenPin, LOW);
+       digitalWrite(bluePin, LOW);
+      delay(3000);
+       digitalWrite(redPin, LOW);
+       digitalWrite(greenPin, LOW);
+       digitalWrite(bluePin, LOW);
+      isEnrollmentComplete = true;
+    }
+  
+  
 
   
     
@@ -403,8 +449,8 @@ void sendHttpGetRequest() {
     client.print(userID);
     client.print("&p=");
     client.print(password);
-    //client.print("&r=");
-    //client.print(r);
+    client.print("&r=");
+    client.print(r);
     client.println(" HTTP/1.1");
     client.print("Host: ");
     client.print(serverIP[0]);
@@ -419,8 +465,11 @@ void sendHttpGetRequest() {
    
     
     Serial.println("Request sent");
-     String c = client.readString();
-    Serial.print(c);
+    String c = client.readString();
+     int newlinePos = c.indexOf('\n');
+     String out = c.substring(0,newlinePos);
+    Serial.println(out);
+    response = out;
     //isFingerTaken = false;
     isFingerDone = false;
     
