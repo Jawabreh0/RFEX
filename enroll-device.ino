@@ -1,8 +1,19 @@
 #include <LiquidCrystal.h>
 #include <Keypad.h>
-#include <SPI.h>
-#include <MFRC522.h>
 #include <Adafruit_Fingerprint.h>
+#include <SPI.h>
+#include <UIPEthernet.h>
+
+static byte mymac[] = {0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED};
+
+// Destination server details
+static byte serverIP[] = {192, 168, 0, 2};
+static const int serverPort = 80;
+static const char* serverPath = "/api/v1/devices/add?";
+
+static char responseBuffer[512];
+
+static EthernetClient client;
 
 LiquidCrystal lcd(7, 6, 3, 30, 31, 32);
 
@@ -15,7 +26,6 @@ Adafruit_Fingerprint finger = Adafruit_Fingerprint(&mySerial);
 
 uint8_t id;
 
-// Keypad Connections
 const byte ROWS = 4;
 const byte COLS = 4;
 char hexaKeys[ROWS][COLS] = {
@@ -28,27 +38,27 @@ byte rowPins[ROWS] = {22, 23, 24, 25};  // Connect to the row pinouts of the key
 byte colPins[COLS] = {A0, A1, A2, A3};  // Connect to the column pinouts of the keypad
 Keypad customKeypad = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
 
-#define SS_PIN 53
-#define RST_PIN 5
-MFRC522 rfid(SS_PIN, RST_PIN);
-
 String userID = "";
 String password = "";
 String confirmPassword = "";
-String rfidData = "";
 bool isFirstPassword = true;
 bool isEnteringUserID = true;
 bool isFingerTaken = true;
-bool isEnrollmentComplete = false;  // Variable to track enrollment completion
+bool isEnrollmentComplete = false;
+bool isFingerDone = false;
+
+String p = "222";
+String e = "111";
+String r = "666";
+  // Variable to track enrollment completion
+
 
 void setup() {
-  Serial.begin(9600);
-  while (!Serial)
-    ;
+  // put your setup code here, to run once:
+   Serial.begin(9600);
+  while (!Serial);
   delay(100);
   lcd.begin(16, 2);
-  SPI.begin();
-  rfid.PCD_Init();
   lcd.print("Enter User ID:");
 
   finger.begin(57600);
@@ -60,6 +70,15 @@ void setup() {
       delay(1);
     }
   }
+
+   Ethernet.begin(mymac);
+    delay(1000);
+
+    Serial.println("Ethernet connected");
+    Serial.print("IP address: ");
+    Serial.println(Ethernet.localIP());
+
+  
 }
 
 uint8_t readnumber(void) {
@@ -77,10 +96,11 @@ void resetVariables() {
   userID = "";
   password = "";
   confirmPassword = "";
-  rfidData = "";
+  isFingerTaken = true;
   isFirstPassword = true;
   isEnteringUserID = true;
   isEnrollmentComplete = false;
+  isFingerDone = false;
 }
 
 void displayInitialPrompt() {
@@ -89,11 +109,12 @@ void displayInitialPrompt() {
 }
 
 void loop() {
+  // put your main code here, to run repeatedly:
   if (isEnrollmentComplete) {
     // Reset variables and display initial prompts
     resetVariables();
     displayInitialPrompt();
-    isEnrollmentComplete = false;
+    
   }
 
   char customKey = customKeypad.getKey();
@@ -136,17 +157,15 @@ void loop() {
           lcd.clear();
           lcd.print("User ID: " + userID);
           id = (uint8_t)userID.toInt();
-
+          Serial.println(userID);
           lcd.setCursor(0, 1);
           lcd.print("Password: " + password);
+           Serial.println(password);
           delay(2000);
 
           lcd.clear();
-          lcd.print("Scan RFID Key");
-          rfidData = "";  // Reset RFID data
-          while (!rfid.PICC_IsNewCardPresent()) {
-            // Wait for RFID card to be presented
-          }
+          
+          isFingerDone = true;
         } else {
           lcd.clear();
           lcd.print("Passwords do not match");
@@ -168,52 +187,55 @@ void loop() {
       }
     }
   }
-
-  if (rfid.PICC_IsNewCardPresent() && rfid.PICC_ReadCardSerial()) {
-    for (byte i = 0; i < rfid.uid.size; i++) {
-      rfidData += String(rfid.uid.uidByte[i] < 0x10 ? "0" : "");
-      rfidData += String(rfid.uid.uidByte[i], HEX);
-      if (i < rfid.uid.size - 1) {
-        rfidData += " ";
-      }
+  if(isFingerDone){
+    lcd.setCursor(0,0);
+    lcd.println("Saving data...");
+    lcd.setCursor(0,1);
+    lcd.println("Please wait");
+  do{
+    /*Ethernet.begin(mymac);
+    delay(1000);
+    
+    Serial.println("Ethernet connected");
+    Serial.print("IP address: ");
+    Serial.println(Ethernet.localIP());*/
+    //for( int i = 0; i<10;i++){
+    if (client.available()) {
+    char c = client.read();
+    Serial.print(c);
+    
     }
-    rfidData.toUpperCase();  // Convert the RFID data to uppercase
-    lcd.clear();
-    lcd.print("RFID Detected:");
-    lcd.setCursor(0, 1);
-    lcd.print(rfidData);
-    delay(2000);
 
-    lcd.clear();
-    lcd.print("User ID: " + userID);
-    lcd.setCursor(0, 1);
-    lcd.print("Password: " + password);
-    delay(2000);
-    lcd.setCursor(0, 1);
-    lcd.print("RFID Key: " + rfidData);
-
-    Serial.println(userID);
-    Serial.println(password);
-    Serial.println(rfidData);
-    isFingerTaken = false;
-    // Set enrollment as complete
-    //isEnrollmentComplete = true;
+  if (!client.connected()) {
+    sendHttpGetRequest();
+    delay(1000); // Delay between consecutive requests
   }
-   
+    //}
+    client.stop();
+    isFingerTaken = false;
+    //isFingerDone = false;
+    
+  
+  }while(isFingerDone);
+   isFingerTaken = false;
+  }
+
   if(!isFingerTaken){
      
    do{
      getFingerprintEnroll();
    }while (!isFingerTaken );  
-   isEnrollmentComplete = true;   
+    isEnrollmentComplete = true;
   }
+
+  
+    
 }
 
-
 uint8_t getFingerprintEnroll() {
-
+  lcd.clear();
   int p = -1;
-  lcd.setCursor(0, 1);
+  lcd.setCursor(0, 0);
   lcd.println("Scan a finger...");
 
   while (p != FINGERPRINT_OK) {
@@ -271,7 +293,7 @@ uint8_t getFingerprintEnroll() {
   }
   Serial.print("ID "); Serial.println(id);
   p = -1;
-  lcd.setCursor(0,1);
+  lcd.setCursor(0,0);
   lcd.print("Place same finger again");
   
   while (p != FINGERPRINT_OK) {
@@ -371,4 +393,42 @@ uint8_t getFingerprintEnroll() {
   isFingerTaken = true;
   
    
+}
+
+void sendHttpGetRequest() {
+  if (client.connect(serverIP, serverPort)) {
+    client.print("GET ");
+    client.print(serverPath);
+    client.print("e=");
+    client.print(userID);
+    client.print("&p=");
+    client.print(password);
+    //client.print("&r=");
+    //client.print(r);
+    client.println(" HTTP/1.1");
+    client.print("Host: ");
+    client.print(serverIP[0]);
+    client.print(".");
+    client.print(serverIP[1]);
+    client.print(".");
+    client.print(serverIP[2]);
+    client.print(".");
+    client.println(serverIP[3]);
+    client.println("Connection: close");
+    client.println();
+   
+    
+    Serial.println("Request sent");
+     String c = client.readString();
+    Serial.print(c);
+    //isFingerTaken = false;
+    isFingerDone = false;
+    
+    
+    
+    
+  } else {
+    Serial.println("Failed to connect to server");
+    //isFingerDone= true;
+  }
 }
