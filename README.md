@@ -21,6 +21,9 @@ This GitHub repository contains the code and documentation for a Machine Learnin
 
 ## Hardware Configuration
 
+![connection-map.jpeg](connection-map.jpeg)
+
+
 Note that the provided connection include an RFID reader but we did not use it in the final version of the device; instead, it incorporates a camera as part of the ESP32 CAM module to facilitate face recognition.
 
 ## Contribution Guidelines
