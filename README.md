@@ -18,3 +18,19 @@ This GitHub repository contains the code and documentation for a Machine Learnin
     - Keypad: A standard Chinese keypad is used for passcode input.
     - LEDs and Buzzer: LEDs and a buzzer are employed to indicate whether the door is open or locked.
     - Liquid Crystal Screen: An LCD screen displays information and instructions for users.
+
+## Hardware Configuration
+
+Note that the provided connection include an RFID reader but we did not use it in the final version of the device; instead, it incorporates a camera as part of the ESP32 CAM module to facilitate face recognition.
+
+## Contribution Guidelines
+We welcome contributions from the open-source community.
+
+## License
+This project is licensed under the MIT License. See the LICENSE file for details.
+
+## Acknowledgments
+We would like to express our gratitude to the open-source community for their contributions and support in making this project possible, to the project Supevisor Prof. Parvaneh Esmaili and contributers Milena Turatbikova, Ravilya Rafikova and Yusa Capraz 
+
+
+
